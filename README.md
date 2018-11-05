@@ -1,8 +1,12 @@
 .SYNOPSIS
     
     This script will target either a range of IP addesse, a specific IP address, a specific host 
-    or a range of hosts with a file of a random size and if a range is specified to how many hosts in that range
+    or a range of hosts with a file of a random size and if a range is specified, how many hosts in that range
     to target.
+    
+    The script will loop through each (random) host and start sequential copy jobs of the copy file to the target location.
+    
+    You can purge existing test files by specifying the boolean -PurgeOldTestFiles parameter.
     
     This tool supports workgroup and domain environments through the use of the -UseCredentials switch.
     
