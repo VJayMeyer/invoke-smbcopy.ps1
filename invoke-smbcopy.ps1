@@ -1,10 +1,8 @@
-﻿<#
+<#
 .SYNOPSIS
     This script will target either a range of IP addesse, a specific IP address, a specific host 
     or a range of hosts with a file of a random size and if a range is specified to how many hosts in that range
-    to target.
-
-    Authored by Victor Meyer (Salt Technology Group)
+    to target
 
 .DESCRIPTION
     This script will create a file of a certain size and then copy that file to the target hosts sequentially
@@ -96,11 +94,32 @@ param(
     [parameter(Mandatory,ParameterSetName = "HostRange")]
     [ValidateNotNullOrEmpty()]
     [bool]$PurgeOldTestFiles,
-
+    
     [parameter(Mandatory,ParameterSetName = "IPAddressRange")]
     [parameter(Mandatory,ParameterSetName = "HostRange")]
     [ValidateNotNullOrEmpty()]
-    [string]$NumberOfHosts
+    [string]$NumberOfHosts,
+
+    [Parameter(ParameterSetName = 'IPAddress')]
+    [parameter(ParameterSetName = "HostName")]
+    [parameter(ParameterSetName = "IPAddressRange")]
+    [parameter(ParameterSetName = "HostRange")]
+    [switch]$UseCredentials,
+
+    [Parameter(ParameterSetName = 'IPAddress')]
+    [parameter(ParameterSetName = "HostName")]
+    [parameter(ParameterSetName = "IPAddressRange")]
+    [parameter(ParameterSetName = "HostRange")]
+    [ValidateNotNullOrEmpty()]
+    [string]$UserName,
+
+    [Parameter(ParameterSetName = 'IPAddress')]
+    [parameter(ParameterSetName = "HostName")]
+    [parameter(ParameterSetName = "IPAddressRange")]
+    [parameter(ParameterSetName = "HostRange")]
+    [ValidateNotNullOrEmpty()]
+    [string]$Password
+
 )
 # Main Script Function Library
 function test-host
@@ -238,37 +257,35 @@ function purge-testfiles
 $Functions = { 
     function copy-file
     {
-        param([string]$HostName,[string]$Path,[string]$TargetLocation)
+        param([string]$HostName,[string]$Path,[string]$TargetLocation,[bool]$UseCredentials)
         end
         {
-            # Copy to host
+            # Configure Destination
             $Destination = "\\$HostName\$TargetLocation"
+
+            # Set up an authenticated channel
+            if($UseCredentials -eq $true) {
+                net use $Destination $UserName /USER:$Password
+            }
+
+            # Copy to host
             if(Test-Path -Path $Destination) {
                 $FileName = [guid]::NewGuid();
                 $Destination = "\\$HostName\$TargetLocation\$FileName.tst"
                 Copy-Item -Path $Path -Destination $Destination -Force
             }
+
+            # Close authenticated channel
+            if($UseCredentials -eq $true) {
+                net use $Destination $UserName /delete
+            }
         }
     }
-    function purge-testfiles
-{
-    param([string]$Path, [string]$HostName)
-    end
-    {
-        $Destination = "\\$HostName\$TargetLocation"
-        if(Test-Path -Path $Destination) {
-            Get-ChildItem -Path $Destination -File -Filter *.tst | Remove-Item -Force
-        }
-        else {
-            Write-Warning "Files could not be purged because the path was not accessible ($Destination)"
-        }
-    }
-}
 }
 
 function action-plan-1
 {
-    param([string]$HostName, [Int64]$FileSize, [string]$TargetLocation, [int]$NumberOfFiles, [bool]$PurgeOldTestFiles)
+    param([string]$HostName, [Int64]$FileSize, [string]$TargetLocation, [int]$NumberOfFiles, [bool]$PurgeOldTestFiles, [bool]$UseCredentials)
     end
     {
         # Clear all existing jobs
@@ -285,6 +302,7 @@ function action-plan-1
 
             # Generate a test file if one doesn't exist
             $Path = create-testfile -FileSize $FileSize
+
             #Loop through number of files to copy
             $x = 0
             do
@@ -297,7 +315,7 @@ function action-plan-1
                     param([string]$Path, [string]$HostName, [string]$TargetLocation)
                     # Copy File
                     copy-file -Hostname $HostName -Path $Path -TargetLocation $TargetLocation
-                } -ArgumentList($Path,$HostName,$TargetLocation) -InitializationScript $Functions
+                } -ArgumentList($Path,$HostName,$TargetLocation,$UseCredentials) -InitializationScript $Functions
 
                 #Increment Counter
                 $x++
@@ -308,13 +326,19 @@ function action-plan-1
 }
 function action-plan-2
 {
-    param([string]$HostList, [Int64]$FileSize, [string]$TargetLocation, [int]$NumberOfFiles, [bool]$PurgeOldTestFiles, [string]$HostListType, [int] $NumberOfHosts)
+    param([string]$HostList, [Int64]$FileSize, [string]$TargetLocation, [int]$NumberOfFiles, [bool]$PurgeOldTestFiles, [string]$HostListType, [int]$NumberOfHosts, [bool]$UseCredentials)
     end
     {
+        # Clear all existing jobs
+        Remove-Job -State Failed
+        Remove-Job -State Completed
+
         # Generate a test file if one doesn't exist
         $Path = create-testfile -FileSize $FileSize
+
         # Get all the hosts to be parsed
         $Hosts = generate-targethostlist -HostList $HostList -HostListType $HostListType -NumberOfHosts $NumberOfHosts
+
         #Work Through Each Host
         foreach($HostName in $Hosts)
         {
@@ -337,7 +361,7 @@ function action-plan-2
                     param([string]$Path, [string]$HostName, [string]$TargetLocation)
                     # Copy File
                     copy-file -Hostname $HostName -Path $Path -TargetLocation $TargetLocation
-                } -ArgumentList($Path,$HostName,$TargetLocation) -InitializationScript $Functions
+                } -ArgumentList($Path,$HostName,$TargetLocation,$UseCredentials) -InitializationScript $Functions
 
                 #Increment Counter
                 $x++
@@ -346,7 +370,13 @@ function action-plan-2
         }
     }
 }
- 
+
+# Determine if Workgroup Authentication is valid
+if ($PSBoundParameters.ContainsKey('UseCredentials')) { 
+    $UseCredentials = $true
+} else {
+    $UseCredentials = $false
+}
 # Execute Action Plan 1 - IP Address
 if ($PSBoundParameters.ContainsKey('IPAddress')) {
     write-host "Executing Action Plan 1"
@@ -354,7 +384,8 @@ if ($PSBoundParameters.ContainsKey('IPAddress')) {
                   -FileSize $FileSize `
                   -TargetLocation $TargetLocation `
                   -NumberOfFiles $NumberOfFiles `
-                  -PurgeOldTestFiles $PurgeOldTestFiles
+                  -PurgeOldTestFiles $PurgeOldTestFiles `
+                  -UseCredentials $UseCredentials
 }
 # Execute Action Plan 1 - Hostname
 if ($PSBoundParameters.ContainsKey('HostName')) {
@@ -363,7 +394,8 @@ if ($PSBoundParameters.ContainsKey('HostName')) {
                   -FileSize $FileSize `
                   -TargetLocation $TargetLocation `
                   -NumberOfFiles $NumberOfFiles `
-                  -PurgeOldTestFiles $PurgeOldTestFiles
+                  -PurgeOldTestFiles $PurgeOldTestFiles `
+                  -UseCredentials $UseCredentials
 }
 # Execute Action Plan 2 - IP Address Range
 if ($PSBoundParameters.ContainsKey('IPAddressRange')) {
@@ -374,7 +406,8 @@ if ($PSBoundParameters.ContainsKey('IPAddressRange')) {
                   -NumberOfFiles $NumberOfFiles `
                   -PurgeOldTestFiles $PurgeOldTestFiles `
                   -HostListType "IPAddressRange" `
-                  -NumberOfHosts $NumberOfHosts
+                  -NumberOfHosts $NumberOfHosts `
+                  -UseCredentials $UseCredentials
 }
 # Execute Action Plan 2 - Host Range
 if ($PSBoundParameters.ContainsKey('HostRange')) {
@@ -385,5 +418,6 @@ if ($PSBoundParameters.ContainsKey('HostRange')) {
                   -NumberOfFiles $NumberOfFiles `
                   -PurgeOldTestFiles $PurgeOldTestFiles `
                   -HostListType "HostRange" `
-                  -NumberOfHosts $NumberOfHosts
+                  -NumberOfHosts $NumberOfHosts `
+                  -UseCredentials $UseCredentials
 }
