@@ -1,11 +1,8 @@
-<#
 .SYNOPSIS
     This script will target either a range of IP addesse, a specific IP address, a specific host 
     or a range of hosts with a file of a random size and if a range is specified to how many hosts in that range
     to target.
-
-    Authored by Victor Meyer (Salt Technology Group)
-
+    
 .DESCRIPTION
     This script will create a file of a certain size and then copy that file to the target hosts sequentially
 
@@ -47,5 +44,3 @@
     .\Invoke-SMBCopy.ps1 -HostRange "192.168.0.10,192.168.0.110" -FileSize 20GB -TargetLocation D$ -NumberOfHosts 2
     
 .NOTES
-
-#>
