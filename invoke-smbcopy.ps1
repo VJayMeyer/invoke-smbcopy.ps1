@@ -1,8 +1,10 @@
 <#
 .SYNOPSIS
     This script will target either a range of IP addesse, a specific IP address, a specific host 
-    or a range of hosts with a file of a random size and if a range is specified to how many hosts in that range
-    to target
+    or a range of hosts with a file of a random size and if an IP range is specified, how many hosts in that range
+    to target.
+    
+    This tool supports workgroup and domain environments through the use of the -UseCredentials switch
 
 .DESCRIPTION
     This script will create a file of a certain size and then copy that file to the target hosts sequentially
@@ -43,6 +45,7 @@
     .\Invoke-SMBCopy.ps1 -HostName Server1 -FileSize 1TB -TargetLocation D$\SomeFolder
     .\Invoke-SMBCopy.ps1 -HostRange "Server1,Server2,Server3,Server4" -FileSize 20GB -TargetLocation D$ -NumberOfHosts 2
     .\Invoke-SMBCopy.ps1 -HostRange "192.168.0.10,192.168.0.110" -FileSize 20GB -TargetLocation D$ -NumberOfHosts 2
+    .\Invoke-SMBCopy.ps1 -HostRange "192.168.0.10,192.168.0.110" -FileSize 20GB -TargetLocation D$ -NumberOfHosts 2 -UseCredentials -Username username -Password password
     
 .NOTES
 
