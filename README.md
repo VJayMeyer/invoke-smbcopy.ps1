@@ -1,9 +1,11 @@
 .SYNOPSIS
+    
     This script will target either a range of IP addesse, a specific IP address, a specific host 
     or a range of hosts with a file of a random size and if a range is specified to how many hosts in that range
     to target.
     
 .DESCRIPTION
+    
     This script will create a file of a certain size and then copy that file to the target hosts sequentially
 
 .PARAMETER
@@ -34,9 +36,11 @@
 
 
 .INPUTS
+    
     None.
 
 .EXAMPLE
+    
     .\Invoke-SMBCopy.ps1 -IPAddress 192.168.0.10 -FileSize 20GB -TargetLocation D$
     .\Invoke-SMBCopy.ps1 -IPAddressRange 192.168.0.10-192.168.0.20 -FileSize 20GB -TargetLocation D$ -NumberOfHosts 5
     .\Invoke-SMBCopy.ps1 -HostName Server1 -FileSize 1TB -TargetLocation D$\SomeFolder
